@@ -7,6 +7,10 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
+/*
+ * Requires 'order' (integer and nullable) attribute from Model Migration
+ * Gets optional $orderUnificationAttributes property from Model Class.
+ */
 trait HasOrder
 {
     protected static function boot(): void

@@ -1,17 +1,11 @@
-# #todo: description will be here
+# Package Summary 
+This Laravel package provides a handy trait called HasOrder designed to simplify 
+the management of ordered records in your Eloquent models. By applying this trait 
+to your models, you introduce an 'order' attribute, allowing you to effortlessly 
+handle the ordering of records within a given model.
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/yusufalper/laravel-order.svg?style=flat-square)](https://packagist.org/packages/yusufalper/laravel-order)
 [![Total Downloads](https://img.shields.io/packagist/dt/yusufalper/laravel-order.svg?style=flat-square)](https://packagist.org/packages/yusufalper/laravel-order)
-
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
-
-## Support us
-
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/laravel-order.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/laravel-order)
-
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
-
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
 
 ## Installation
 
@@ -21,61 +15,90 @@ You can install the package via composer:
 composer require yusufalper/laravel-order
 ```
 
-You can publish and run the migrations with:
-
-```bash
-php artisan vendor:publish --tag="laravel-order-migrations"
-php artisan migrate
-```
-
-You can publish the config file with:
-
-```bash
-php artisan vendor:publish --tag="laravel-order-config"
-```
-
-This is the contents of the published config file:
-
-```php
-return [
-];
-```
-
-Optionally, you can publish the views using
-
-```bash
-php artisan vendor:publish --tag="laravel-order-views"
-```
-
 ## Usage
+1. Apply Trait:
+Simply apply the HasOrder trait to your Eloquent model.
+Ensure that your model's migration includes an 'order' column (integer and nullable) 
+to support the ordering functionality.
 
+2. Optional Configuration:
+Optionally, you can define $orderUnificationAttributes (public array) within your model 
+to fine-tune the ordering behavior according to your application's specific requirements.
+For example if you add 'user_id' attribute to $orderUnificationAttributes, then your
+ordering will be user_id based ordering.
+
+3. Automatic Handling:
+The package takes care of automatic order adjustments during record creation, 
+ensuring a seamless and organized ordering process.
+
+4. Effortless Update and Delete:
+The HasOrder trait also seamlessly handles updates and deletes, maintaining the correct order of records based on your defined criteria.
+
+## Example Usage
 ```php
-$laravelOrder = new Alper\LaravelOrder();
-echo $laravelOrder->echoPhrase('Hello, Alper!');
+use Illuminate\Database\Eloquent\Model;
+use Alper\LaravelOrder\Traits\HasOrder;
+
+class CompanyBranch extends Model
+{
+    use HasOrder;
+    
+    protected $fillable = [
+        'order'
+        'company_id'
+    ];
+    
+    public array $orderUnificationAttributes = [
+        'company_id'
+    ];
+}
+
 ```
 
-## Testing
+If you have multiple traits that each of which has a boot method, 
+Then you should use like this:
+```php
+use Illuminate\Database\Eloquent\Model;
+use Alper\LaravelOrder\Traits\HasOrder;
 
-```bash
-composer test
+class CompanyBranch extends Model
+{
+    use HasOrder {
+        HasOrder::boot as bootHasOrderTrait;
+    }
+    use OtherTrait {
+        OtherTrait::boot as bootOtherTraitTrait;
+    }
+
+    public static function boot(): void
+    {
+        static::bootHasOrderTrait();
+        static::bootOtherTraitTrait();
+    }
+    
+    protected $fillable = [
+        'order'
+        'company_id'
+    ];
+    
+    public array $orderUnificationAttributes = [
+        'company_id'
+    ];
+}
+
 ```
+
+By integrating the HasOrder trait into your Laravel models, 
+you streamline the process of managing ordered records, 
+offering enhanced control and flexibility.
 
 ## Changelog
 
 Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
 
-## Contributing
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
 ## Credits
 
 - [Alper](https://github.com/yusufalper)
-- [All Contributors](../../contributors)
 
 ## License
 
