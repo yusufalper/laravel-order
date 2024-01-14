@@ -135,4 +135,38 @@ class OrderService
         }
         $record->delete();
     }
+
+    public static function arrangeAllOrders(Model $model): void
+    {
+        $reSorts = get_class($model)::where(function ($q) use ($model) {
+            foreach ($model->orderUnificationAttributes as $attribute) {
+                $q->where($attribute, $model->{$attribute});
+            }
+        })->orderBy('order')->get();
+        $firstNumber = (int)$reSorts->first()->order;
+        $reSortsArr = [];
+        foreach ($reSorts->whereNotNull('order')->toArray() as $reSort) {
+            foreach ($reSort as $key => $attr) {
+                if (is_array($attr)) {
+                    $reSort[$key] = json_encode($attr);
+                }
+            }
+            $reSort['updated_at'] = now();
+            $reSort['order'] = $firstNumber;
+            $reSortsArr[] = $reSort;
+            $firstNumber += 1;
+        }
+        foreach ($reSorts->whereNull('order')->toArray() as $reSort) {
+            foreach ($reSort as $key => $attr) {
+                if (is_array($attr)) {
+                    $reSort[$key] = json_encode($attr);
+                }
+            }
+            $reSort['updated_at'] = now();
+            $reSort['order'] = $firstNumber;
+            $reSortsArr[] = $reSort;
+            $firstNumber += 1;
+        }
+        get_class($model)::query()->upsert($reSortsArr, 'id', ['order']);
+    }
 }

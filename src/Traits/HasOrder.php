@@ -53,26 +53,7 @@ trait HasOrder
             DB::beginTransaction();
             try {
                 if ($model->order !== $model->getOriginal('order')) {
-                    $reSorts = get_class($model)::where(function ($q) use ($model){
-                        foreach ($model->orderUnificationAttributes as $attribute) {
-                            $q->where($attribute, $model->{$attribute});
-                        }
-                    })->whereNotNull('order')
-                        ->orderBy('order')->get();
-                    $firstNumber = (int)$reSorts->first()->order;
-                    $reSortsArr = [];
-                    foreach ($reSorts->toArray() as $reSort) {
-                        foreach ($reSort as $key => $attr) {
-                            if (is_array($attr)) {
-                                $reSort[$key] = json_encode($attr);
-                            }
-                        }
-                        $reSort['updated_at'] = now();
-                        $reSort['order'] = $firstNumber;
-                        $reSortsArr[] = $reSort;
-                        $firstNumber += 1;
-                    }
-                    get_class($model)::query()->upsert($reSortsArr, 'id', ['order']);
+                    OrderService::arrangeAllOrders($model);
                 }
             } catch (Exception|Throwable $e) {
                 DB::rollBack();
