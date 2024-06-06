@@ -8,10 +8,13 @@ class OrderService
 {
     public string $className;
     public array $conditions;
+    public string $orderAttrName;
+
     public function __construct(public Model $record)
     {
         $this->className = get_class($this->record);
         $this->conditions = $this->record->orderUnificationAttributes ?? [];
+        $this->orderAttrName = $this->record->orderAttrName ?? 'order';
     }
 
     public function saveNew(int|null $userGivenOrder = null): int
@@ -28,58 +31,58 @@ class OrderService
     {
         $conditions = $this->conditions;
         $record = $this->record;
-        return ((int)$this->className::whereNotNull('order')->orderByDesc('order')
+        return ((int) $this->className::whereNotNull($this->orderAttrName)->orderByDesc($this->orderAttrName)
                 ->where(function ($q) use ($conditions, $record) {
                     foreach ($conditions as $condition) {
                         $q->where($condition, $record->{$condition});
                     }
-                })->select(['id', 'order'])->first()?->order ?? 0) + 1;
+                })->select(['id', $this->orderAttrName])->first()?->{$this->orderAttrName} ?? 0) + 1;
     }
 
     public function updateOrder(): int
     {
         $conditions = $this->conditions;
         $record = $this->record;
-        $collection = $this->className::whereNotNull('order')
+        $collection = $this->className::whereNotNull($this->orderAttrName)
             ->where(function ($q) use ($record, $conditions) {
                 foreach ($conditions as $condition) {
                     $q->where($condition, $record->{$condition});
                 }
-            })->orderBy('order')->get();
+            })->orderBy($this->orderAttrName)->get();
 
-        $new_order = (int)$record->order ?? $this->newOrder();
+        $new_order = (int) $record->{$this->orderAttrName} ?? $this->newOrder();
         if (count($collection) > 0) {
-            if ($collection->last()?->order < $record->order) {
-                $new_order = $collection->last()->order;
-            } elseif ($collection->last()->order <= 0) {
+            if ($collection->last()?->{$this->orderAttrName} < $record->{$this->orderAttrName}) {
+                $new_order = $collection->last()->{$this->orderAttrName};
+            } elseif ($collection->last()->{$this->orderAttrName} <= 0) {
                 $new_order = 1;
             }
         } else {
             $new_order = 1;
         }
 
-        if ($record->order == null) {
+        if ($record->{$this->orderAttrName} == null) {
             $new_order = $this->newOrder();
         }
 
         while (true) {
-            if (! ((int)$new_order - 1) > 0) {
+            if (! ((int) $new_order - 1) > 0) {
                 break;
             }
-            $emptyOld = $collection->where('order', ((int)$new_order - 1))->first();
+            $emptyOld = $collection->where($this->orderAttrName, ((int) $new_order - 1))->first();
             if ($emptyOld) {
                 break;
             }
-            $new_order = (int)$new_order - 1;
+            $new_order = (int) $new_order - 1;
         }
 
-        $old = $collection->where('order', $record->order)->first();
+        $old = $collection->where($this->orderAttrName, (int) $record->{$this->orderAttrName})->first();
         if ($old) {
-            $changes = $collection->where('order', '>=', $record->order);
-            if ($new_order > $record->order) {
-                $changes = $changes->where('order', '<=', $new_order);
+            $changes = $collection->where($this->orderAttrName, '>=', (int) $record->{$this->orderAttrName});
+            if ($new_order > $record->{$this->orderAttrName}) {
+                $changes = $changes->where($this->orderAttrName, '<=', (int) $new_order);
             } else {
-                $changes = $changes->where('order', '>=', $new_order);
+                $changes = $changes->where($this->orderAttrName, '>=', (int) $new_order);
             }
             if (count($changes) > 0) {
                 $upsert = [];
@@ -90,15 +93,15 @@ class OrderService
                             $c[$key] = json_encode($attr);
                         }
                     }
-                    if ($new_order > $record->order) {
-                        $c['order'] = (int) $c['order'] - 1;
-                    } else {
-                        $c['order'] = (int) $c['order'] + 1;
+                    if ($new_order >= $record->getOriginal($this->orderAttrName) && $c[$this->orderAttrName] <= $new_order) {
+                        $c[$this->orderAttrName] = (int) $c[$this->orderAttrName] - 1;
+                    } elseif ($c[$this->orderAttrName] >= $new_order) {
+                        $c[$this->orderAttrName] = (int) $c[$this->orderAttrName] + 1;
                     }
                     $upsert[] = $c;
                 }
                 if (count($upsert) > 0) {
-                    $this->className::query()->upsert($upsert, 'id', ['order']);
+                    $this->className::query()->upsert($upsert, 'id', [$this->orderAttrName]);
                 }
             }
         }
@@ -109,15 +112,15 @@ class OrderService
     {
         $conditions = $this->conditions;
         $record = $this->record;
-        if ($record->order) {
-            $collection = $this->className::whereNotNull('order')->orderBy('order')
+        if ($record->{$this->orderAttrName}) {
+            $collection = $this->className::whereNotNull($this->orderAttrName)->orderBy($this->orderAttrName)
                 ->where(function ($q) use ($record, $conditions) {
                     foreach ($conditions as $condition) {
                         $q->where($condition, $record->{$condition});
                     }
                 })->get();
 
-            $oldAfter = $collection->where('order', '>', $record->order);
+            $oldAfter = $collection->where($this->orderAttrName, '>', (int) $record->{$this->orderAttrName});
             if (count($oldAfter) > 0) {
                 $upsert = [];
                 foreach ($oldAfter as $oa) {
@@ -127,10 +130,10 @@ class OrderService
                             $oa[$key] = json_encode($attr);
                         }
                     }
-                    $oa['order'] = (int) $oa['order'] - 1;
+                    $oa[$this->orderAttrName] = (int) $oa[$this->orderAttrName] - 1;
                     $upsert[] = $oa;
                 }
-                $this->className::query()->upsert($upsert, 'id', ['order']);
+                $this->className::query()->upsert($upsert, 'id', [$this->orderAttrName]);
             }
         }
         $record->delete();
@@ -142,31 +145,31 @@ class OrderService
             foreach ($model->orderUnificationAttributes as $attribute) {
                 $q->where($attribute, $model->{$attribute});
             }
-        })->orderBy('order')->get();
-        $firstNumber = (int)$reSorts->first()->order;
+        })->orderBy($model->orderAttrName)->get();
         $reSortsArr = [];
-        foreach ($reSorts->whereNotNull('order')->toArray() as $reSort) {
+        $firstNumber = 1;
+        foreach ($reSorts->whereNotNull($model->orderAttrName)->toArray() as $reSort) {
             foreach ($reSort as $key => $attr) {
                 if (is_array($attr)) {
                     $reSort[$key] = json_encode($attr);
                 }
             }
             $reSort['updated_at'] = now();
-            $reSort['order'] = $firstNumber;
+            $reSort[$model->orderAttrName] = $firstNumber;
             $reSortsArr[] = $reSort;
             $firstNumber += 1;
         }
-        foreach ($reSorts->whereNull('order')->toArray() as $reSort) {
+        foreach ($reSorts->whereNull($model->orderAttrName)->toArray() as $reSort) {
             foreach ($reSort as $key => $attr) {
                 if (is_array($attr)) {
                     $reSort[$key] = json_encode($attr);
                 }
             }
             $reSort['updated_at'] = now();
-            $reSort['order'] = $firstNumber;
+            $reSort[$model->orderAttrName] = $firstNumber;
             $reSortsArr[] = $reSort;
             $firstNumber += 1;
         }
-        get_class($model)::query()->upsert($reSortsArr, 'id', ['order']);
+        get_class($model)::query()->upsert($reSortsArr, 'id', [$model->orderAttrName]);
     }
 }
