@@ -18,11 +18,11 @@ composer require yusufalper/laravel-order
 ## Usage
 1. Apply Trait:
 Simply apply the HasOrder trait to your Eloquent model.
-Ensure that your model's migration includes an 'order' column (integer and nullable) 
+Ensure that your model's migration includes a column (integer and nullable) specified in model as '$orderAttrName' (see example in below)
 to support the ordering functionality.
 
 2. Optional Configuration:
-Optionally, you can define $orderUnificationAttributes (public array) within your model 
+Define $orderUnificationAttributes (public array) within your model 
 to fine-tune the ordering behavior according to your application's specific requirements.
 For example if you add 'user_id' attribute to $orderUnificationAttributes, then your
 ordering will be user_id based ordering.
@@ -47,6 +47,8 @@ class CompanyBranch extends Model
         'order'
         'company_id'
     ];
+
+    public string $orderAttrName = 'order';
     
     public array $orderUnificationAttributes = [
         'company_id'
@@ -81,6 +83,8 @@ class CompanyBranch extends Model
         'company_id'
     ];
     
+    public string $orderAttrName = 'order';
+
     public array $orderUnificationAttributes = [
         'company_id'
     ];
