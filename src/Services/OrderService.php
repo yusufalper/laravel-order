@@ -1,6 +1,6 @@
 <?php
 
-namespace Alper\LaravelOrder\Services;
+namespace App\Helpers\HelperServices;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -31,7 +31,7 @@ class OrderService
     {
         $conditions = $this->conditions;
         $record = $this->record;
-        return ((int) $this->className::whereNotNull($this->orderAttrName)->orderByDesc($this->orderAttrName)
+        return ((int)$this->className::whereNotNull($this->orderAttrName)->orderByDesc($this->orderAttrName)
                 ->where(function ($q) use ($conditions, $record) {
                     foreach ($conditions as $condition) {
                         $q->where($condition, $record->{$condition});
@@ -50,7 +50,7 @@ class OrderService
                 }
             })->orderBy($this->orderAttrName)->get();
 
-        $new_order = (int) $record->{$this->orderAttrName} ?? $this->newOrder();
+        $new_order = (int)$record->{$this->orderAttrName} ?? $this->newOrder();
         if (count($collection) > 0) {
             if ($collection->last()?->{$this->orderAttrName} < $record->{$this->orderAttrName}) {
                 $new_order = $collection->last()->{$this->orderAttrName};
@@ -66,23 +66,24 @@ class OrderService
         }
 
         while (true) {
-            if (! ((int) $new_order - 1) > 0) {
+            if (! ((int)$new_order - 1) > 0) {
                 break;
             }
-            $emptyOld = $collection->where($this->orderAttrName, ((int) $new_order - 1))->first();
+            $emptyOld = $collection->where($this->orderAttrName, ((int)$new_order - 1))->first();
             if ($emptyOld) {
                 break;
             }
-            $new_order = (int) $new_order - 1;
+            $new_order = (int)$new_order - 1;
         }
 
-        $old = $collection->where($this->orderAttrName, (int) $record->{$this->orderAttrName})->first();
+        $old = $collection->where($this->orderAttrName, (int)$record->{$this->orderAttrName})->first();
         if ($old) {
-            $changes = $collection->where($this->orderAttrName, '>=', (int) $record->{$this->orderAttrName});
+            $changes = $collection->where($this->orderAttrName, '>=', (int)$record->{$this->orderAttrName});
             if ($new_order > $record->{$this->orderAttrName}) {
-                $changes = $changes->where($this->orderAttrName, '<=', (int) $new_order);
+                $changes = $changes->where($this->orderAttrName, '<=', (int)$new_order);
             } else {
-                $changes = $changes->where($this->orderAttrName, '>=', (int) $new_order);
+                $changes = $changes->where($this->orderAttrName, '>=', (int)$new_order)
+                    ->where('id', '!=', $record->id);
             }
             if (count($changes) > 0) {
                 $upsert = [];
@@ -94,9 +95,9 @@ class OrderService
                         }
                     }
                     if ($new_order >= $record->getOriginal($this->orderAttrName) && $c[$this->orderAttrName] <= $new_order) {
-                        $c[$this->orderAttrName] = (int) $c[$this->orderAttrName] - 1;
+                        $c[$this->orderAttrName] = (int)$c[$this->orderAttrName] - 1;
                     } elseif ($c[$this->orderAttrName] >= $new_order) {
-                        $c[$this->orderAttrName] = (int) $c[$this->orderAttrName] + 1;
+                        $c[$this->orderAttrName] = (int)$c[$this->orderAttrName] + 1;
                     }
                     $upsert[] = $c;
                 }
@@ -120,7 +121,7 @@ class OrderService
                     }
                 })->get();
 
-            $oldAfter = $collection->where($this->orderAttrName, '>', (int) $record->{$this->orderAttrName});
+            $oldAfter = $collection->where($this->orderAttrName, '>', (int)$record->{$this->orderAttrName});
             if (count($oldAfter) > 0) {
                 $upsert = [];
                 foreach ($oldAfter as $oa) {
@@ -130,13 +131,12 @@ class OrderService
                             $oa[$key] = json_encode($attr);
                         }
                     }
-                    $oa[$this->orderAttrName] = (int) $oa[$this->orderAttrName] - 1;
+                    $oa[$this->orderAttrName] = (int)$oa[$this->orderAttrName] - 1;
                     $upsert[] = $oa;
                 }
                 $this->className::query()->upsert($upsert, 'id', [$this->orderAttrName]);
             }
         }
-        $record->delete();
     }
 
     public static function arrangeAllOrders(Model $model): void
@@ -145,7 +145,7 @@ class OrderService
             foreach ($model->orderUnificationAttributes as $attribute) {
                 $q->where($attribute, $model->{$attribute});
             }
-        })->orderBy($model->orderAttrName)->get();
+        })->orderBy($model->orderAttrName)->where('id', '!=', $model->id)->get();
         $reSortsArr = [];
         $firstNumber = 1;
         foreach ($reSorts->whereNotNull($model->orderAttrName)->toArray() as $reSort) {
@@ -155,6 +155,11 @@ class OrderService
                 }
             }
             $reSort['updated_at'] = now();
+
+            if ($firstNumber === $model->{($model->orderAttrName ?? 'order')} &&
+                $reSort['id'] !== $model->id) {
+                $firstNumber += 1;
+            }
             $reSort[$model->orderAttrName] = $firstNumber;
             $reSortsArr[] = $reSort;
             $firstNumber += 1;
