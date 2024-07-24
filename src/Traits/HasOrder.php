@@ -1,18 +1,18 @@
 <?php
 
-namespace Alper\LaravelOrder\Traits;
+namespace App\Traits;
 
-use Alper\LaravelOrder\Services\OrderService;
+use App\Helpers\HelperServices\OrderService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
-
 /*
- * Requires integer and nullable attribute from Model Migration $orderAttrName in Model
+ * Requires 'order' (integer and nullable) attribute from Model Migration
  * Gets optional $orderUnificationAttributes property from Model Class.
  * Gets optional orderAttrName property from Model Class default is 'order'.
  */
+
 trait HasOrder
 {
     #important: public string $orderAttrName = 'order';
@@ -60,6 +60,12 @@ trait HasOrder
             }
             DB::commit();
         });
+
+        static::created(
+            function ($model) {
+                OrderService::arrangeAllOrders($model);
+            }
+        );
         static::updated(/**
          * @throws Throwable
          */ function ($model) {
@@ -70,7 +76,7 @@ trait HasOrder
                         foreach ($model->orderUnificationAttributes as $attribute) {
                             $q->where($attribute, $model->{$attribute});
                         }
-                    })->whereNotNull($model->orderAttrName)
+                    })->whereNotNull($model->orderAttrName)->where('id', '!=', $model->id)
                         ->orderBy($model->orderAttrName)->get();
                     $firstNumber = (int) $reSorts->first()->{$model->orderAttrName};
                     if ($firstNumber === 0) {
